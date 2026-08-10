@@ -9,7 +9,7 @@ Prometheus metrics for Node-RED. Metric config nodes are constructed before the 
 Install the package from the Node-RED user directory, then restart Node-RED:
 
 ```bash
-npm install node-red-contrib-nodered-metrics
+npm install @yroshcha/node-red-contrib-nodered-metrics
 ```
 
 The **metrics** palette category provides the **metric** and **metrics exporter** workspace nodes. Create metric configurations from the `metric` node's Metric selector.

@@ -7,7 +7,7 @@
 Встановіть з локального архіву в каталозі Node-RED:
 
 ```bash
-npm install /path/to/node-red-contrib-nodered-metrics-0.1.0-dev.6.tgz
+npm install @yroshcha/node-red-contrib-nodered-metrics
 ```
 
 Після інсталяції перезапустіть Node-RED. У палітрі з’явиться категорія **metrics** з нодами **metric** і **metrics exporter**. Config-нода доступна у виборі метрики всередині ноди `metric`.
