@@ -2,8 +2,6 @@
 
 Prometheus metrics for Node-RED. Metric config nodes are constructed before the flow nodes that write to them, eliminating the startup race caused by Function-node initialisation with `global.get('metrics')`.
 
-Українська документація: [README.uk.md](README.uk.md).
-
 ## Installation
 
 Install the package from the Node-RED user directory, then restart Node-RED:
