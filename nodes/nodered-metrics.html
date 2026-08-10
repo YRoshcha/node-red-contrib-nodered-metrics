@@ -1,0 +1,221 @@
+<script type="text/javascript">
+RED.nodes.registerType('nodered-metric-config', {
+    category: 'config', color: '#4F7CAC',
+    defaults: {
+        name: { value: '' },
+        metricType: { value: 'counter', required: true },
+        metricName: { value: '', validate: function(v) { return this.metricType === 'default-metrics' || /^[a-zA-Z_:][a-zA-Z0-9_:]*$/.test(v); } },
+        help: { value: '' }, labelNames: { value: '' }, buckets: { value: '' },
+        withDuration: { value: false }, prefix: { value: 'nodered_' }
+    },
+    label: function() { return this.name || this.metricName || 'metric configuration'; },
+    oneditprepare: function() {
+        const update = () => {
+            const kind = $('#node-config-input-metricType').val();
+            $('.metric-fields').toggle(kind !== 'default-metrics');
+            $('.histogram-only').toggle(kind === 'histogram');
+            $('.counter-only').toggle(kind === 'counter');
+            $('.default-only').toggle(kind === 'default-metrics');
+            $('.metric-kind-note').hide();
+            $(`.metric-kind-note[data-kind="${kind}"]`).show();
+        };
+        $('#node-config-input-metricType').on('change', update); update();
+    }
+});
+
+RED.nodes.registerType('nodered-metric', {
+    category: 'metrics', color: '#E6A23C', icon: 'font-awesome/fa-line-chart',
+    inputs: 1, outputs: 1, align: 'left',
+    defaults: {
+        name: { value: '' }, metric: { value: '', type: 'nodered-metric-config', required: true },
+        operation: { value: 'inc' }, autoStep: { value: true }, step: { value: '' }, stepType: { value: 'str' },
+        status: { value: 'success' }, statusType: { value: 'str' }, value: { value: '1' }, valueType: { value: 'num' },
+        duration: { value: '' }, durationType: { value: 'num' }, durationUnit: { value: 'seconds' }, labels: { value: [] }
+    },
+    label: function() {
+        const configured = RED.nodes.node(this.metric);
+        const rawName = configured && (configured.metricName || configured.name);
+        const metricName = rawName && rawName.replace(/^nodered_/, '').replace(/_total$/, '');
+        return metricName ? `metric [${metricName}]` : (this.name || 'metric');
+    },
+    paletteLabel: 'metric',
+    oneditprepare: function() {
+        $('#node-input-step').typedInput({ default: 'str', types: ['str', 'msg', 'flow', 'global', 'env'], typeField: '#node-input-stepType' });
+        $('#node-input-status').typedInput({ default: 'str', types: ['str', 'msg', 'flow', 'global', 'env'], typeField: '#node-input-statusType' });
+        $('#node-input-value').typedInput({ default: 'num', types: ['num', 'msg', 'flow', 'global', 'env'], typeField: '#node-input-valueType' });
+        $('#node-input-duration').typedInput({ default: 'num', types: ['num', 'msg', 'flow', 'global', 'env'], typeField: '#node-input-durationType' });
+        const refresh = () => {
+            const observe = $('#node-input-operation').val() === 'observe';
+            $('.metric-value-row').toggle(!observe); $('.metric-duration-row').toggle(observe);
+            $('.step-value').toggle(!$('#node-input-autoStep').prop('checked'));
+            $('.operation-note').hide();
+            $(`.operation-note[data-operation="${$('#node-input-operation').val()}"]`).show();
+        };
+        $('#node-input-operation, #node-input-autoStep').on('change', refresh); refresh();
+        const list = $('#node-input-labels').css('min-height', '118px').editableList({
+            addItem: function(container, i, row) {
+                row = row || {}; const name = $('<input/>', { type: 'text', class: 'node-input-label-name', placeholder: 'label name' }).val(row.name || '').appendTo(container);
+                const value = $('<input/>', { type: 'text', class: 'node-input-label-value', placeholder: 'value' }).val(row.value || '').appendTo(container);
+                value.typedInput({ default: 'str', types: ['str', 'msg', 'flow', 'global', 'env'], typeField: $('<input/>', { type: 'hidden', class: 'node-input-label-type' }).val(row.valueType || 'str').appendTo(container) });
+            }, removable: true, sortable: true
+        });
+        (this.labels || []).forEach((row) => list.editableList('addItem', row));
+        const resizeLabelList = () => {
+            const rows = list.editableList('items').length;
+            const height = `${Math.min(300, Math.max(118, 48 + rows * 36))}px`;
+            list.css({ height: height, 'min-height': height });
+        };
+        const addConfiguredLabels = () => {
+            const metric = RED.nodes.node($('#node-input-metric').val());
+            if (!metric || !metric.labelNames) { resizeLabelList(); return; }
+            const reserved = new Set(['step', 'status', 'process']);
+            const existing = new Set();
+            list.editableList('items').each(function() {
+                const name = $(this).find('.node-input-label-name').val();
+                if (name) existing.add(name.trim());
+            });
+            String(metric.labelNames).split(',').map((name) => name.trim()).filter(Boolean).forEach((name) => {
+                if (!reserved.has(name) && !existing.has(name)) {
+                    list.editableList('addItem', { name: name, value: '', valueType: 'str' });
+                }
+            });
+            resizeLabelList();
+        };
+        $('#node-input-metric').on('change', addConfiguredLabels);
+        $('#node-input-copy-metric').on('click', function(event) {
+            event.preventDefault();
+            const source = RED.nodes.node($('#node-input-metric').val());
+            if (!source) {
+                RED.notify('Select a metric configuration before copying it.', 'warning');
+                return;
+            }
+            const copiedName = source.metricName
+                ? source.metricName.replace(/_total$/, '_copy_total').replace(/_seconds$/, '_copy_seconds')
+                : '';
+            const definition = RED.nodes.getType('nodered-metric-config');
+            const copy = {
+                id: RED.nodes.id(), type: 'nodered-metric-config', _def: definition,
+                hasUsers: false, users: [],
+                name: `${source.name || source.metricName || 'Metric'} copy`,
+                metricType: source.metricType, metricName: copiedName, help: source.help,
+                labelNames: source.labelNames, buckets: source.buckets,
+                withDuration: source.withDuration, prefix: source.prefix
+            };
+            RED.nodes.add(copy);
+            $('#node-input-metric').append($('<option>', {
+                value: copy.id,
+                text: copy.name
+            })).val(copy.id).trigger('change');
+            RED.editor.validateNode(copy);
+            RED.nodes.dirty(true);
+            RED.notify('Metric configuration copied. Use the edit button to adjust its name.', 'success');
+        });
+        setTimeout(addConfiguredLabels, 0);
+    },
+    oneditsave: function() {
+        const rows = [];
+        $('#node-input-labels').editableList('items').each(function() {
+            const item = $(this); const name = item.find('.node-input-label-name').val().trim();
+            if (name) rows.push({ name: name, value: item.find('.node-input-label-value').val(), valueType: item.find('.node-input-label-type').val() });
+        });
+        this.labels = rows;
+    }
+});
+
+RED.nodes.registerType('nodered-metrics-exporter', {
+    category: 'metrics', color: '#E6A23C', icon: 'font-awesome/fa-line-chart',
+    inputs: 0, outputs: 0, defaults: { name: { value: '' }, path: { value: '/nodeRedMetrics', required: true } },
+    label: function() {
+        const endpoint = String(this.path || '/nodeRedMetrics').replace(/^\//, '');
+        return `metrics exporter [${endpoint}]`;
+    }, paletteLabel: 'metrics exporter'
+});
+</script>
+
+<style>
+    .nrm-section { margin: 18px 0 12px; padding: 0 0 7px; border-bottom: 1px solid #d8e0e7; color: #4F7CAC; font-size: 13px; font-weight: 600; }
+    .nrm-section i { margin-right: 5px; }
+    .nrm-hint { margin: -3px 6px 12px 105px; color: #738190; font-size: 12px; line-height: 1.45; }
+    .nrm-note { box-sizing: border-box; margin: 4px 6px 12px 105px; padding: 7px 9px; border-radius: 2px; background: #eef5fa; color: #40556c; font-size: 12px; line-height: 1.4; }
+    .nrm-note i { margin-right: 5px; color: #4F7CAC; }
+    .nrm-warning { background: #fff8e8; color: #785b20; }
+    .nrm-warning i { color: #b78a21; }
+    /* Node-RED's editableList resets inline dimensions after it adds rows. */
+    #node-input-labels { height: 360px !important; min-height: 360px !important; }
+    #node-input-labels .red-ui-editableList-item-content { display: flex; gap: 6px; align-items: center; }
+    .node-input-label-name { width: 34% !important; }
+    .node-input-label-value { width: 54% !important; }
+    /* Node-RED applies a legacy rule to its conventional "name" field in some themes. */
+    #node-input-name, #node-config-input-name {
+        box-sizing: border-box !important;
+        width: 70% !important;
+        height: 28px !important;
+        padding: 4px 8px !important;
+        border: 1px solid #bbb !important;
+        border-radius: 3px !important;
+        background: #fff !important;
+        color: #333 !important;
+        font-size: 13px !important;
+        line-height: 20px !important;
+    }
+    #node-input-name:focus, #node-config-input-name:focus {
+        border-color: #999 !important;
+        outline: none;
+        box-shadow: none;
+    }
+    .metric-duration-row .red-ui-typedInput { width: calc(70% - 80px) !important; margin-left: 22px; }
+    .metric-duration-row #node-input-durationUnit { width: 74px !important; margin-left: 6px; }
+</style>
+
+<script type="text/html" data-template-name="nodered-metric-config">
+    <div class="nrm-section"><i class="fa fa-line-chart"></i>Metric definition</div>
+    <div class="form-row"><label for="node-config-input-name"><i class="fa fa-tag"></i> Display name</label><input type="text" id="node-config-input-name" placeholder="e.g. Kafka events"></div>
+    <p class="nrm-hint">Used only in the editor. Give this configuration a clear, recognisable name.</p>
+    <div class="form-row"><label for="node-config-input-metricType"><i class="fa fa-sliders"></i> Metric type</label><select id="node-config-input-metricType"><option value="counter">Counter</option><option value="histogram">Histogram</option><option value="gauge">Gauge</option><option value="default-metrics">Default metrics</option></select></div>
+    <div class="nrm-note metric-kind-note" data-kind="counter"><i class="fa fa-plus-circle"></i>Counters only move upward. Use names ending in <code>_total</code>.</div>
+    <div class="nrm-note metric-kind-note" data-kind="histogram"><i class="fa fa-clock-o"></i>Histograms group observations into buckets, ideal for durations and sizes.</div>
+    <div class="nrm-note metric-kind-note" data-kind="gauge"><i class="fa fa-tachometer"></i>Gauges can rise and fall, ideal for current queue size or active jobs.</div>
+    <div class="nrm-note metric-kind-note" data-kind="default-metrics"><i class="fa fa-server"></i>Collect Node.js process metrics once for this Node-RED instance.</div>
+    <div class="metric-fields form-row"><label for="node-config-input-metricName">Prometheus name</label><input type="text" id="node-config-input-metricName" placeholder="nodered_events_total"></div>
+    <p class="metric-fields nrm-hint">Use the <code>nodered_</code> prefix. The name becomes permanent until the process restarts.</p>
+    <div class="metric-fields form-row"><label for="node-config-input-help">Description</label><input type="text" id="node-config-input-help" placeholder="Number of processed events"></div>
+    <div class="metric-fields form-row"><label for="node-config-input-labelNames">Label names</label><input type="text" id="node-config-input-labelNames" placeholder="step,status,process"></div>
+    <p class="metric-fields nrm-hint">Comma-separated. Only declared labels can be written. Changing this list needs a full restart.</p>
+    <div class="histogram-only form-row"><label for="node-config-input-buckets">Buckets</label><input type="text" id="node-config-input-buckets" placeholder="0.1, 0.5, 1, 5"></div>
+    <p class="histogram-only nrm-hint">Values are seconds, from the fastest useful threshold to the slowest.</p>
+    <div class="counter-only form-row"><label>&nbsp;</label><input type="checkbox" id="node-config-input-withDuration" style="display:inline-block; width:auto; vertical-align:top;"><span style="margin-left:8px">Also track duration</span></div>
+    <p class="counter-only nrm-hint">Creates a companion <code>_duration_seconds</code> histogram with the same labels.</p>
+    <div class="default-only form-row"><label for="node-config-input-prefix">Prefix</label><input type="text" id="node-config-input-prefix" placeholder="nodered_"></div>
+    <p class="default-only nrm-hint">A <code>host</code> label is added automatically to default metrics only.</p>
+</script>
+
+<script type="text/html" data-template-name="nodered-metric">
+    <div class="nrm-section"><i class="fa fa-pencil-square-o"></i>Metric write</div>
+    <div class="form-row"><label for="node-input-name"><i class="fa fa-tag"></i> Node name</label><input type="text" id="node-input-name" placeholder="e.g. Kafka consume"></div>
+    <div class="form-row"><label for="node-input-metric"><i class="fa fa-line-chart"></i> Metric</label><input id="node-input-metric"><a id="node-input-copy-metric" class="editor-button" title="Copy selected metric configuration" style="margin-left:6px"><i class="fa fa-copy"></i></a></div>
+    <div class="form-row"><label for="node-input-operation"><i class="fa fa-bolt"></i> Action</label><select id="node-input-operation"><option value="inc">Increment counter</option><option value="observe">Observe duration</option><option value="set">Set gauge</option></select></div>
+    <div class="nrm-note operation-note" data-operation="inc"><i class="fa fa-plus-circle"></i>Add a value to a Counter. The default is <strong>1</strong>.</div>
+    <div class="nrm-note operation-note" data-operation="observe"><i class="fa fa-clock-o"></i>Record an observation in seconds, or enter milliseconds and convert automatically.</div>
+    <div class="nrm-note operation-note" data-operation="set"><i class="fa fa-tachometer"></i>Set a Gauge to the supplied value.</div>
+    <div class="nrm-section"><i class="fa fa-tags"></i>Labels</div>
+    <div class="form-row"><label>&nbsp;</label><input type="checkbox" id="node-input-autoStep" style="display:inline-block; width:auto; vertical-align:top;"><span style="margin-left:8px">Use node name as <code>step</code></span></div>
+    <div class="form-row step-value"><label for="node-input-step">Step</label><input type="text" id="node-input-step"><input type="hidden" id="node-input-stepType"></div>
+    <div class="form-row"><label for="node-input-status">Status</label><input type="text" id="node-input-status"><input type="hidden" id="node-input-statusType"></div>
+    <div class="form-row metric-value-row"><label for="node-input-value">Value</label><input type="text" id="node-input-value"><input type="hidden" id="node-input-valueType"></div>
+    <div class="form-row metric-duration-row"><label for="node-input-duration">Duration</label><input type="text" id="node-input-duration"><input type="hidden" id="node-input-durationType"><select id="node-input-durationUnit"><option value="seconds">seconds</option><option value="ms">ms</option></select></div>
+    <div class="form-row"><label><i class="fa fa-tags"></i> Extra labels</label><ol id="node-input-labels"></ol></div>
+    <p class="nrm-hint">Labels declared in the selected metric configuration are added here automatically. Set each value with a typed input.</p>
+    <div class="nrm-note nrm-warning"><i class="fa fa-exclamation-triangle"></i>Keep values bounded. Do not use IDs, UUIDs or timestamps as label values.</div>
+</script>
+
+<script type="text/html" data-template-name="nodered-metrics-exporter">
+    <div class="nrm-section"><i class="fa fa-share-alt"></i>Prometheus endpoint</div>
+    <div class="form-row"><label for="node-input-name"><i class="fa fa-tag"></i> Node name</label><input id="node-input-name" placeholder="Metrics endpoint"></div>
+    <div class="form-row"><label for="node-input-path"><i class="fa fa-link"></i> HTTP path</label><input type="text" id="node-input-path" placeholder="/nodeRedMetrics"></div>
+    <div class="nrm-note"><i class="fa fa-info-circle"></i>Prometheus scrapes this path on the current Node-RED instance only.</div>
+    <div class="nrm-note nrm-warning"><i class="fa fa-exclamation-triangle"></i>Avoid <code>/metrics</code> when another Prometheus exporter palette is installed.</div>
+</script>
+
+<script type="text/html" data-help-name="nodered-metric-config"><p>Defines a Prometheus metric before any writer node uses it. Config nodes are created first, preventing startup races.</p><p>Changing label names requires a full Node-RED restart. Metrics are isolated per Node-RED instance.</p></script>
+<script type="text/html" data-help-name="nodered-metric"><p>Writes a configured metric then passes the message through unchanged. <code>step</code>, <code>status</code> and <code>process</code> are filled only when declared on the metric.</p><p>Do not put unbounded values such as user or order IDs in labels; use a bounded template instead.</p></script>
+<script type="text/html" data-help-name="nodered-metrics-exporter"><p>Exposes this Node-RED instance’s Prometheus registry at the configured HTTP path. Use a path other than <code>/metrics</code> when another Prometheus exporter is installed.</p></script>
