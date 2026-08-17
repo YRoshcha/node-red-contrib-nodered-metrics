@@ -127,7 +127,7 @@ RED.nodes.registerType('nodered-metric', {
     },
     oneditsave: function() {
         const rows = [];
-        $('#node-input-labels').editableList('items').each(function() {
+        $('#node-input-label-list').editableList('items').each(function() {
             const item = $(this); const name = item.find('.node-input-label-name').val().trim();
             if (name) {
                 const value = item.find('.node-input-label-value');

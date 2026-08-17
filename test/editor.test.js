@@ -10,6 +10,7 @@ const editor = fs.readFileSync(path.join(__dirname, "..", "nodes", "nodered-metr
 test("extra-label editor restores and saves the typed-input value and type", () => {
   assert.match(editor, /id="node-input-label-list"/);
   assert.doesNotMatch(editor, /id="node-input-labels"/);
+  assert.match(editor, /oneditsave: function\(\) \{[\s\S]*?\$\('#node-input-label-list'\)\.editableList\('items'\)/);
   assert.match(editor, /Node-RED treats that id as the\s*\/\/ `labels` property/s);
   assert.match(editor, /default: 'str',\s*types: \['str', 'msg', 'flow', 'global', 'env'\]/s);
   assert.match(editor, /value\.typedInput\('value', row\.value \|\| ''\);\s*value\.typedInput\('type', row\.valueType \|\| 'str'\);/s);
