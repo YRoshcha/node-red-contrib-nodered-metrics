@@ -5,7 +5,12 @@ RED.nodes.registerType('nodered-metric-config', {
         name: { value: '' },
         metricType: { value: 'counter', required: true },
         metricName: { value: '', validate: function(v) { return this.metricType === 'default-metrics' || /^[a-zA-Z_:][a-zA-Z0-9_:]*$/.test(v); } },
-        help: { value: '' }, labelNames: { value: '' }, buckets: { value: '' },
+        help: { value: '' },
+        labelNames: { value: '', validate: function(v) {
+            const names = String(v || '').split(',').map((name) => name.trim()).filter(Boolean);
+            return names.every((name, index) => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name) && names.indexOf(name) === index);
+        } },
+        buckets: { value: '' },
         withDuration: { value: false }, prefix: { value: 'nodered_' }
     },
     label: function() { return this.name || this.metricName || 'metric configuration'; },
@@ -54,9 +59,15 @@ RED.nodes.registerType('nodered-metric', {
         $('#node-input-operation, #node-input-autoStep').on('change', refresh); refresh();
         const list = $('#node-input-labels').css('min-height', '118px').editableList({
             addItem: function(container, i, row) {
-                row = row || {}; const name = $('<input/>', { type: 'text', class: 'node-input-label-name', placeholder: 'label name' }).val(row.name || '').appendTo(container);
+                row = row || {};
+                const name = $('<input/>', { type: 'text', class: 'node-input-label-name', placeholder: 'label name' }).val(row.name || '').appendTo(container);
                 const value = $('<input/>', { type: 'text', class: 'node-input-label-value', placeholder: 'value' }).val(row.value || '').appendTo(container);
-                value.typedInput({ default: 'str', types: ['str', 'msg', 'flow', 'global', 'env'], typeField: $('<input/>', { type: 'hidden', class: 'node-input-label-type' }).val(row.valueType || 'str').appendTo(container) });
+                const typeField = $('<input/>', { type: 'hidden', class: 'node-input-label-type' }).val(row.valueType || 'str').appendTo(container);
+                value.typedInput({
+                    type: row.valueType || 'str',
+                    types: ['str', 'msg', 'flow', 'global', 'env'],
+                    typeField: typeField
+                });
             }, removable: true, sortable: true
         });
         (this.labels || []).forEach((row) => list.editableList('addItem', row));
@@ -116,7 +127,14 @@ RED.nodes.registerType('nodered-metric', {
         const rows = [];
         $('#node-input-labels').editableList('items').each(function() {
             const item = $(this); const name = item.find('.node-input-label-name').val().trim();
-            if (name) rows.push({ name: name, value: item.find('.node-input-label-value').val(), valueType: item.find('.node-input-label-type').val() });
+            if (name) {
+                const value = item.find('.node-input-label-value');
+                rows.push({
+                    name: name,
+                    value: value.typedInput('value'),
+                    valueType: value.typedInput('type')
+                });
+            }
         });
         this.labels = rows;
     }
@@ -124,7 +142,10 @@ RED.nodes.registerType('nodered-metric', {
 
 RED.nodes.registerType('nodered-metrics-exporter', {
     category: 'metrics', color: '#E6A23C', icon: 'font-awesome/fa-line-chart',
-    inputs: 0, outputs: 0, defaults: { name: { value: '' }, path: { value: '/nodeRedMetrics', required: true } },
+    inputs: 0, outputs: 0, defaults: {
+        name: { value: '' },
+        path: { value: '/nodeRedMetrics', required: true, validate: function(v) { return /^\/\S*$/.test(String(v || '')); } }
+    },
     label: function() {
         const endpoint = String(this.path || '/nodeRedMetrics').replace(/^\//, '');
         return `metrics exporter [${endpoint}]`;

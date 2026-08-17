@@ -1,0 +1,140 @@
+[
+  {
+    "id": "a5e67d485c3f1234",
+    "type": "tab",
+    "label": "MongoDB metrics example",
+    "disabled": false,
+    "info": ""
+  },
+  {
+    "id": "b6f78e596d4a2345",
+    "type": "comment",
+    "z": "a5e67d485c3f1234",
+    "name": "Example: record MongoDB query duration",
+    "info": "This example simulates a MongoDB query. In a real flow, set msg.collection, msg.operation and msg.duration around the database call. The metric writer records the duration in milliseconds and passes the message through unchanged.",
+    "x": 220,
+    "y": 80,
+    "wires": []
+  },
+  {
+    "id": "c7a89f6a7e5b3456",
+    "type": "inject",
+    "z": "a5e67d485c3f1234",
+    "name": "Simulate MongoDB query",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 180,
+    "y": 140,
+    "wires": [
+      [
+        "d8b90a7b8f6c4567"
+      ]
+    ]
+  },
+  {
+    "id": "d8b90a7b8f6c4567",
+    "type": "function",
+    "z": "a5e67d485c3f1234",
+    "name": "Set query fields",
+    "func": "msg.collection = 'orders';\nmsg.operation = 'find';\nmsg.duration = 125; // milliseconds\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 390,
+    "y": 140,
+    "wires": [
+      [
+        "e9c01b8c9a7d5678"
+      ]
+    ]
+  },
+  {
+    "id": "e9c01b8c9a7d5678",
+    "type": "nodered-metric",
+    "z": "a5e67d485c3f1234",
+    "name": "MongoDB query duration",
+    "metric": "f0d12c9d0b8e6789",
+    "operation": "observe",
+    "autoStep": true,
+    "step": "",
+    "stepType": "str",
+    "status": "success",
+    "statusType": "str",
+    "value": "1",
+    "valueType": "num",
+    "duration": "duration",
+    "durationType": "msg",
+    "durationUnit": "ms",
+    "labels": [
+      {
+        "name": "collection",
+        "value": "collection",
+        "valueType": "msg"
+      },
+      {
+        "name": "operation",
+        "value": "operation",
+        "valueType": "msg"
+      }
+    ],
+    "x": 630,
+    "y": 140,
+    "wires": [
+      [
+        "a1e23d0e1c9f7890"
+      ]
+    ]
+  },
+  {
+    "id": "a1e23d0e1c9f7890",
+    "type": "debug",
+    "z": "a5e67d485c3f1234",
+    "name": "Message continues",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 840,
+    "y": 140,
+    "wires": []
+  },
+  {
+    "id": "b2f34e1f2d0a8901",
+    "type": "nodered-metrics-exporter",
+    "z": "a5e67d485c3f1234",
+    "name": "Prometheus endpoint",
+    "path": "/nodeRedMetrics",
+    "x": 210,
+    "y": 220,
+    "wires": []
+  },
+  {
+    "id": "f0d12c9d0b8e6789",
+    "type": "nodered-metric-config",
+    "name": "MongoDB query duration",
+    "metricType": "histogram",
+    "metricName": "nodered_mongodb_query_duration_seconds",
+    "help": "MongoDB query duration in seconds",
+    "labelNames": "step,status,process,collection,operation",
+    "buckets": "0.01,0.05,0.1,0.25,0.5,1,2,5",
+    "withDuration": false,
+    "prefix": "nodered_"
+  }
+]

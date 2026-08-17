@@ -3,6 +3,11 @@
 const promClient = require("prom-client");
 const register = promClient.register;
 const defaultMetricPrefixes = new Set();
+const exporterPaths = new Map();
+const METRIC_NAME_PATTERN = /^[a-zA-Z_:][a-zA-Z0-9_:]*$/;
+const LABEL_NAME_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+const METRIC_TYPES = new Set(["counter", "histogram", "gauge"]);
+const OPERATIONS = new Set(["inc", "dec", "set", "observe"]);
 
 function list(value) {
   return String(value || "").split(",").map((item) => item.trim()).filter(Boolean);
@@ -16,25 +21,60 @@ function sameLabels(metric, names) {
   return JSON.stringify(metric.labelNames || []) === JSON.stringify(names);
 }
 
+function sameBuckets(metric, configuredBuckets) {
+  if (!configuredBuckets || !configuredBuckets.length) return true;
+  return JSON.stringify(metric.upperBounds || []) === JSON.stringify(configuredBuckets);
+}
+
 function metricFromRegister(name) {
   return register.getSingleMetric(name);
 }
 
-function warnDrift(node, name, current, requested) {
-  node.warn(
-    `Metric \"${name}\" already exists with labels [${(current.labelNames || []).join(", ")}], ` +
-    `not [${requested.join(", ")}]. The existing metric is retained; restart Node-RED to apply label changes.`
-  );
+function warnDrift(node, name, current, kind, options) {
+  const differences = [];
+  if (current.type !== kind) differences.push(`type ${current.type}, not ${kind}`);
+  if (!sameLabels(current, options.labelNames)) {
+    differences.push(`labels [${(current.labelNames || []).join(", ")}], not [${options.labelNames.join(", ")}]`);
+  }
+  if (kind === "histogram" && !sameBuckets(current, options.buckets)) differences.push("different buckets");
+  if (differences.length) {
+    node.warn(
+      `Metric \"${name}\" already exists with ${differences.join("; ")}. ` +
+      "The existing metric is retained; restart Node-RED to apply its schema changes."
+    );
+  }
 }
 
 function createMetric(node, kind, options) {
   const existing = metricFromRegister(options.name);
   if (existing) {
-    if (!sameLabels(existing, options.labelNames)) warnDrift(node, options.name, existing, options.labelNames);
+    warnDrift(node, options.name, existing, kind, options);
     return existing;
   }
   const Constructor = kind === "counter" ? promClient.Counter : kind === "histogram" ? promClient.Histogram : promClient.Gauge;
   return new Constructor({ ...options, registers: [register] });
+}
+
+function configurationError(metricName, metricType, labelNames) {
+  if (!METRIC_TYPES.has(metricType)) return `Unsupported metric type \"${metricType}\".`;
+  if (!METRIC_NAME_PATTERN.test(metricName)) return `Metric \"${metricName}\" has an invalid Prometheus name.`;
+  const invalid = labelNames.find((name) => !LABEL_NAME_PATTERN.test(name));
+  if (invalid) return `Label \"${invalid}\" has an invalid Prometheus name.`;
+  const duplicate = labelNames.find((name, index) => labelNames.indexOf(name) !== index);
+  if (duplicate) return `Label \"${duplicate}\" is declared more than once.`;
+  return null;
+}
+
+function legacyMetricPayload(msg) {
+  const payload = msg && msg.payload;
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+  if (typeof payload.op !== "string" || !Object.prototype.hasOwnProperty.call(payload, "val")) return null;
+  return OPERATIONS.has(payload.op) ? payload : null;
+}
+
+function endpointPath(value) {
+  const path = String(value || "/nodeRedMetrics").trim();
+  return path.startsWith("/") ? path : `/${path}`;
 }
 
 function typedValue(RED, node, value, type, msg) {
@@ -67,9 +107,14 @@ module.exports = function (RED) {
 
     if (this.metricType === "default-metrics") {
       const prefix = config.prefix === undefined || config.prefix === "" ? "nodered_" : config.prefix;
-      if (!defaultMetricPrefixes.has(prefix)) {
-        promClient.collectDefaultMetrics({ register, prefix, labels: { host: process.env.HOSTNAME || "unknown" } });
-        defaultMetricPrefixes.add(prefix);
+      const sentinel = `${prefix}process_cpu_user_seconds_total`;
+      if (!defaultMetricPrefixes.has(prefix) || !metricFromRegister(sentinel)) {
+        try {
+          promClient.collectDefaultMetrics({ register, prefix, labels: { host: process.env.HOSTNAME || "unknown" } });
+          defaultMetricPrefixes.add(prefix);
+        } catch (error) {
+          this.warn(`Could not create default metrics: ${error.message}`);
+        }
       }
       return;
     }
@@ -82,18 +127,29 @@ module.exports = function (RED) {
       help: String(config.help || this.metricName),
       labelNames: this.labelNames
     };
+    const error = configurationError(this.metricName, this.metricType, this.labelNames);
+    if (error) {
+      this.warn(error);
+      return;
+    }
     if (this.metricType === "histogram") {
       const configuredBuckets = buckets(config.buckets);
       if (configuredBuckets.length) options.buckets = configuredBuckets;
     }
-    this.metric = createMetric(this, this.metricType, options);
-    if (this.metricType === "counter" && config.withDuration) {
-      const durationName = `${this.metricName.replace(/_total$/, "")}_duration_seconds`;
-      this.durationMetric = createMetric(this, "histogram", {
-        name: durationName,
-        help: `${options.help} duration in seconds`,
-        labelNames: this.labelNames
-      });
+    try {
+      this.metric = createMetric(this, this.metricType, options);
+      if (this.metricType === "counter" && config.withDuration) {
+        const durationName = `${this.metricName.replace(/_total$/, "")}_duration_seconds`;
+        this.durationMetric = createMetric(this, "histogram", {
+          name: durationName,
+          help: `${options.help} duration in seconds`,
+          labelNames: this.labelNames
+        });
+      }
+    } catch (error) {
+      this.metric = null;
+      this.durationMetric = null;
+      this.warn(`Could not create metric \"${this.metricName}\": ${error.message}`);
     }
   }
   RED.nodes.registerType("nodered-metric-config", MetricConfig);
@@ -129,6 +185,13 @@ module.exports = function (RED) {
         for (const row of Array.isArray(config.labels) ? config.labels : []) {
           if (row && row.name) labels[row.name] = typedValue(RED, node, row.value, row.valueType || "str", msg);
         }
+        // Keep compatibility with node-red-contrib-prometheus-exporter flows.
+        // That palette sends { op, val, labels } in msg.payload to its output node.
+        const legacyPayload = legacyMetricPayload(msg);
+        const legacyLabels = legacyPayload && (legacyPayload.labels || legacyPayload.Labels);
+        if (legacyLabels && typeof legacyLabels === "object" && !Array.isArray(legacyLabels)) {
+          for (const [key, value] of Object.entries(legacyLabels)) labels[key] = value;
+        }
         const supplied = Object.keys(labels).filter((key) => labels[key] !== undefined);
         const extra = supplied.filter((key) => !expected.includes(key));
         const missing = expected.filter((key) => !supplied.includes(key));
@@ -140,19 +203,26 @@ module.exports = function (RED) {
         }
         if (missing.length) { send(msg); done(); return; }
         const finalLabels = Object.fromEntries(expected.map((key) => [key, labels[key]]));
-        const operation = config.operation || "inc";
+        const operation = legacyPayload
+          ? legacyPayload.op
+          : (config.operation || "inc");
         let target = metricConfig.metric;
         let value;
         if (operation === "observe") {
           target = metricConfig.metricType === "counter" ? metricConfig.durationMetric : metricConfig.metric;
-          value = Number(typedValue(RED, node, config.duration, config.durationType || "num", msg));
-          if (config.durationUnit === "ms") value /= 1000;
+          value = legacyPayload
+            ? Number(legacyPayload.val)
+            : Number(typedValue(RED, node, config.duration, config.durationType || "num", msg));
+          if (!legacyPayload && config.durationUnit === "ms") value /= 1000;
         } else {
-          value = Number(typedValue(RED, node, config.value === undefined ? "1" : config.value, config.valueType || "num", msg));
+          value = legacyPayload && legacyPayload.val !== undefined
+            ? Number(legacyPayload.val)
+            : Number(typedValue(RED, node, config.value === undefined ? "1" : config.value, config.valueType || "num", msg));
         }
         if (!target || !Number.isFinite(value)) {
           warnOnce(`${metricConfig.metricName}:${operation}:invalid`, "Metric value or operation is invalid; metric write was skipped.");
         } else if (operation === "inc" && typeof target.inc === "function") target.inc(finalLabels, value);
+        else if (operation === "dec" && typeof target.dec === "function") target.dec(finalLabels, value);
         else if (operation === "set" && typeof target.set === "function") target.set(finalLabels, value);
         else if (operation === "observe" && typeof target.observe === "function") target.observe(finalLabels, value);
         else warnOnce(`${metricConfig.metricName}:${operation}:type`, `Operation \"${operation}\" is incompatible with metric \"${metricConfig.metricName}\".`);
@@ -168,7 +238,11 @@ module.exports = function (RED) {
   function ExporterNode(config) {
     RED.nodes.createNode(this, config);
     const node = this;
-    const path = String(config.path || "/nodeRedMetrics").trim();
+    const path = endpointPath(config.path);
+    if (exporterPaths.has(path)) {
+      node.warn(`Metrics endpoint \"${path}\" is already configured. This exporter was not started.`);
+      return;
+    }
     const handler = async (_req, res) => {
       try {
         res.set("Content-Type", register.contentType);
@@ -179,7 +253,12 @@ module.exports = function (RED) {
       }
     };
     RED.httpNode.get(path, handler);
-    node.on("close", (_removed, done) => { removeRoute(RED, path, handler); done(); });
+    exporterPaths.set(path, handler);
+    node.on("close", (_removed, done) => {
+      removeRoute(RED, path, handler);
+      exporterPaths.delete(path);
+      done();
+    });
   }
   RED.nodes.registerType("nodered-metrics-exporter", ExporterNode);
 };
