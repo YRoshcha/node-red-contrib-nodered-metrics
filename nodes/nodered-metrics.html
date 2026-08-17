@@ -64,12 +64,12 @@ RED.nodes.registerType('nodered-metric', {
                 row = row || {};
                 const name = $('<input/>', { type: 'text', class: 'node-input-label-name', placeholder: 'label name' }).val(row.name || '').appendTo(container);
                 const value = $('<input/>', { type: 'text', class: 'node-input-label-value', placeholder: 'value' }).val(row.value || '').appendTo(container);
-                const typeField = $('<input/>', { type: 'hidden', class: 'node-input-label-type' }).val(row.valueType || 'str').appendTo(container);
                 value.typedInput({
-                    type: row.valueType || 'str',
-                    types: ['str', 'msg', 'flow', 'global', 'env'],
-                    typeField: typeField
+                    default: 'str',
+                    types: ['str', 'msg', 'flow', 'global', 'env']
                 });
+                value.typedInput('value', row.value || '');
+                value.typedInput('type', row.valueType || 'str');
             }, removable: true, sortable: true
         });
         (this.labels || []).forEach((row) => list.editableList('addItem', row));
