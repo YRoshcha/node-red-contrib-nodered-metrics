@@ -57,7 +57,9 @@ RED.nodes.registerType('nodered-metric', {
             $(`.operation-note[data-operation="${$('#node-input-operation').val()}"]`).show();
         };
         $('#node-input-operation, #node-input-autoStep').on('change', refresh); refresh();
-        const list = $('#node-input-labels').css('min-height', '118px').editableList({
+        // Do not use node-input-labels here: Node-RED treats that id as the
+        // `labels` property and would overwrite the array set in oneditsave.
+        const list = $('#node-input-label-list').css('min-height', '118px').editableList({
             addItem: function(container, i, row) {
                 row = row || {};
                 const name = $('<input/>', { type: 'text', class: 'node-input-label-name', placeholder: 'label name' }).val(row.name || '').appendTo(container);
@@ -162,8 +164,8 @@ RED.nodes.registerType('nodered-metrics-exporter', {
     .nrm-warning { background: #fff8e8; color: #785b20; }
     .nrm-warning i { color: #b78a21; }
     /* Node-RED's editableList resets inline dimensions after it adds rows. */
-    #node-input-labels { height: 360px !important; min-height: 360px !important; }
-    #node-input-labels .red-ui-editableList-item-content { display: flex; gap: 6px; align-items: center; }
+    #node-input-label-list { height: 360px !important; min-height: 360px !important; }
+    #node-input-label-list .red-ui-editableList-item-content { display: flex; gap: 6px; align-items: center; }
     .node-input-label-name { width: 34% !important; }
     .node-input-label-value { width: 54% !important; }
     /* Node-RED applies a legacy rule to its conventional "name" field in some themes. */
@@ -224,7 +226,7 @@ RED.nodes.registerType('nodered-metrics-exporter', {
     <div class="form-row"><label for="node-input-status">Status</label><input type="text" id="node-input-status"><input type="hidden" id="node-input-statusType"></div>
     <div class="form-row metric-value-row"><label for="node-input-value">Value</label><input type="text" id="node-input-value"><input type="hidden" id="node-input-valueType"></div>
     <div class="form-row metric-duration-row"><label for="node-input-duration">Duration</label><input type="text" id="node-input-duration"><input type="hidden" id="node-input-durationType"><select id="node-input-durationUnit"><option value="seconds">seconds</option><option value="ms">ms</option></select></div>
-    <div class="form-row"><label><i class="fa fa-tags"></i> Extra labels</label><ol id="node-input-labels"></ol></div>
+    <div class="form-row"><label><i class="fa fa-tags"></i> Extra labels</label><ol id="node-input-label-list"></ol></div>
     <p class="nrm-hint">Labels declared in the selected metric configuration are added here automatically. Set each value with a typed input.</p>
     <div class="nrm-note nrm-warning"><i class="fa fa-exclamation-triangle"></i>Keep values bounded. Do not use IDs, UUIDs or timestamps as label values.</div>
 </script>

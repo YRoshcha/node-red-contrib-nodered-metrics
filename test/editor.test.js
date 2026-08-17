@@ -8,6 +8,9 @@ const test = require("node:test");
 const editor = fs.readFileSync(path.join(__dirname, "..", "nodes", "nodered-metrics.html"), "utf8");
 
 test("extra-label editor restores and saves the typed-input value and type", () => {
+  assert.match(editor, /id="node-input-label-list"/);
+  assert.doesNotMatch(editor, /id="node-input-labels"/);
+  assert.match(editor, /Node-RED treats that id as the\s*\/\/ `labels` property/s);
   assert.match(editor, /type: row\.valueType \|\| 'str',\s*types: \['str', 'msg', 'flow', 'global', 'env'\],\s*typeField: typeField/s);
   assert.match(editor, /value: value\.typedInput\('value'\),\s*valueType: value\.typedInput\('type'\)/s);
 });
