@@ -1,0 +1,697 @@
+[
+  {
+    "id": "rsmetrics-tab",
+    "type": "tab",
+    "label": "Redis Streams consumer-group metrics",
+    "disabled": false,
+    "info": "A singleton, bounded collector for Redis Streams consumer groups. Configure REDIS_STREAM_GROUPS_JSON or flow.redisStreamGroups manually, select the Redis config node, then deploy. Do not run this collector in every worker pod: it reads global Redis group state."
+  },
+  {
+    "id": "rsmetrics-note",
+    "type": "comment",
+    "z": "rsmetrics-tab",
+    "name": "Manual bounded inventory, throttle, and export labels",
+    "info": "Set REDIS_STREAM_GROUPS_JSON or flow.redisStreamGroups to the stream/group list. REDIS_STREAM_METRICS_MAX_PAIRS defaults to 500. Keep the delay rate high enough that one polling cycle finishes before the next one starts.",
+    "x": 500,
+    "y": 60,
+    "wires": []
+  },
+  {
+    "id": "rsmetrics-inject",
+    "type": "inject",
+    "z": "rsmetrics-tab",
+    "name": "Poll configured groups every 60 seconds",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "60",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "10",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 170,
+    "y": 140,
+    "wires": [
+      [
+        "rsmetrics-build-manual"
+      ]
+    ]
+  },
+  {
+    "id": "rsmetrics-build-manual",
+    "type": "function",
+    "z": "rsmetrics-tab",
+    "name": "Build bounded stream/group jobs",
+    "func": "const raw = env.get('REDIS_STREAM_GROUPS_JSON') || flow.get('redisStreamGroups');\nconst defaultTarget = String(env.get('REDIS_TARGET') || 'redis-primary').trim();\nconst configuredLimit = Number(env.get('REDIS_STREAM_METRICS_MAX_PAIRS') || 500);\nconst pairLimit = Number.isFinite(configuredLimit) && configuredLimit > 0 ? Math.floor(configuredLimit) : 500;\nlet configured = raw;\n\nif (typeof configured === 'string') {\n    try { configured = JSON.parse(configured); } catch (error) {\n        node.error('REDIS_STREAM_GROUPS_JSON must be valid JSON: ' + error.message, msg);\n        return null;\n    }\n}\nif (!Array.isArray(configured)) {\n    node.error('Set REDIS_STREAM_GROUPS_JSON (or flow.redisStreamGroups) to an array of {stream, group, deadLetterStream?}.', msg);\n    return null;\n}\nconst seen = new Set();\nconst jobs = [];\nfor (const item of configured) {\n    if (!item || typeof item !== 'object') continue;\n    const stream = String(item.stream || '').trim();\n    const group = String(item.consumerGroup || item.group || '').trim();\n    const redisTarget = String(item.redisTarget || defaultTarget).trim();\n    const deadLetterStream = item.deadLetterStream ? String(item.deadLetterStream).trim() : '';\n    if (!stream || !group || !redisTarget) continue;\n    const key = redisTarget + '\\u0000' + stream + '\\u0000' + group;\n    if (seen.has(key)) continue;\n    seen.add(key);\n    jobs.push({ stream, group, redisTarget, deadLetterStream });\n}\nif (jobs.length > pairLimit) {\n    node.error('Inventory has ' + jobs.length + ' stream/group pairs, above REDIS_STREAM_METRICS_MAX_PAIRS=' + pairLimit + '.', msg);\n    return null;\n}\nif (!jobs.length) return null;\nmsg.payload = jobs;\nreturn msg;",
+    "outputs": 1,
+    "x": 440,
+    "y": 140,
+    "wires": [
+      [
+        "rsmetrics-split-jobs"
+      ]
+    ]
+  },
+  {
+    "id": "rsmetrics-split-jobs",
+    "type": "split",
+    "z": "rsmetrics-tab",
+    "name": "One job per stream/group",
+    "splt": "1",
+    "spltType": "len",
+    "arraySplt": "1",
+    "arraySpltType": "len",
+    "stream": false,
+    "addname": "",
+    "property": "payload",
+    "x": 690,
+    "y": 140,
+    "wires": [
+      [
+        "rsmetrics-request-fields"
+      ]
+    ]
+  },
+  {
+    "id": "rsmetrics-request-fields",
+    "type": "function",
+    "z": "rsmetrics-tab",
+    "name": "Set dynamic Redis request fields",
+    "func": "const job = msg.payload;\nif (!job || !job.stream || !job.group || !job.redisTarget) {\n    node.error('Invalid stream/group collection job.', msg);\n    return null;\n}\nmsg.stream = job.stream;\nmsg.group = job.group;\nmsg.redisTarget = job.redisTarget;\nmsg.deadLetterStream = job.deadLetterStream || undefined;\nmsg.payload = null;\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 930,
+    "y": 140,
+    "wires": [
+      [
+        "rsmetrics-rate-limit"
+      ]
+    ]
+  },
+  {
+    "id": "rsmetrics-rate-limit",
+    "type": "delay",
+    "z": "rsmetrics-tab",
+    "name": "Limit Redis snapshots to 10 per second",
+    "pauseType": "rate",
+    "timeout": "5",
+    "timeoutUnits": "seconds",
+    "rate": "10",
+    "nbRateUnits": "1",
+    "rateUnits": "second",
+    "randomFirst": "1",
+    "randomLast": "5",
+    "randomUnits": "seconds",
+    "drop": false,
+    "allowrate": false,
+    "outputs": 1,
+    "x": 1200,
+    "y": 140,
+    "wires": [
+      [
+        "rsmetrics-collect"
+      ]
+    ]
+  },
+  {
+    "id": "rsmetrics-collect",
+    "type": "yroshcha-redis-stream-metrics",
+    "z": "rsmetrics-tab",
+    "name": "Collect one dynamic stream/group snapshot",
+    "server": "rsmetrics-redis-config",
+    "streamKey": "__dynamic__",
+    "group": "__dynamic__",
+    "deadLetterStream": "",
+    "x": 1480,
+    "y": 140,
+    "wires": [
+      [
+        "rsmetrics-normalize"
+      ]
+    ]
+  },
+  {
+    "id": "rsmetrics-normalize",
+    "type": "function",
+    "z": "rsmetrics-tab",
+    "name": "Validate snapshot and fan out metric samples",
+    "func": "const snapshot = msg.payload;\nconst optionalNumber = (value) => {\n    if (value === null || value === undefined || value === '') return null;\n    const number = Number(value);\n    return Number.isFinite(number) && number >= 0 ? number : null;\n};\nconst requiredNumber = (name, value) => {\n    const number = optionalNumber(value);\n    if (number === null) throw new Error('Snapshot field ' + name + ' must be a non-negative finite number.');\n    return number;\n};\n\ntry {\n    if (!snapshot || typeof snapshot !== 'object') throw new Error('Redis stream metrics node returned no snapshot.');\n    const stream = String(snapshot.stream || msg.stream || '').trim();\n    const group = String(snapshot.group || msg.group || '').trim();\n    const redisTarget = String(msg.redisTarget || '').trim();\n    if (!stream || !group || !redisTarget) throw new Error('Snapshot is missing stream, group, or redisTarget.');\n\n    const pending = requiredNumber('pending', snapshot.pending);\n    const consumers = requiredNumber('consumers', snapshot.consumers);\n    const lag = optionalNumber(snapshot.lag);\n    const entriesRead = optionalNumber(snapshot.entriesRead);\n    const sampledAtMs = Date.parse(snapshot.sampledAt);\n    if (!Number.isFinite(sampledAtMs)) throw new Error('Snapshot field sampledAt must be an ISO timestamp.');\n\n    const dlqConfigured = typeof snapshot.deadLetterStream === 'string' && snapshot.deadLetterStream.trim() ? 1 : 0;\n    const dlqLength = optionalNumber(snapshot.deadLetterLength);\n    const lastDeliveredMatch = /^(\\d+)-\\d+$/.exec(String(snapshot.lastDeliveredId || ''));\n    const lastDeliveredMs = lastDeliveredMatch ? Number(lastDeliveredMatch[1]) : null;\n    const lastDeliveredTimestamp = Number.isSafeInteger(lastDeliveredMs) && lastDeliveredMs > 0 ? lastDeliveredMs / 1000 : null;\n    const labels = { redis_target: redisTarget, stream, consumer_group: group };\n    const gauge = (value) => ({ payload: { op: 'set', val: value, labels } });\n\n    return [\n        gauge(pending),\n        lag === null ? null : gauge(lag),\n        gauge(lag === null ? 0 : 1),\n        gauge(consumers),\n        entriesRead === null ? null : gauge(entriesRead),\n        gauge(entriesRead === null ? 0 : 1),\n        gauge(dlqConfigured),\n        dlqConfigured && dlqLength !== null ? gauge(dlqLength) : null,\n        gauge(dlqConfigured && dlqLength !== null ? 1 : 0),\n        gauge(sampledAtMs / 1000),\n        lastDeliveredTimestamp === null ? null : gauge(lastDeliveredTimestamp),\n        gauge(lastDeliveredTimestamp === null ? 0 : 1)\n    ];\n} catch (error) {\n    node.error('Invalid Redis stream consumer-group snapshot: ' + error.message, msg);\n    return null;\n}",
+    "outputs": 12,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1780,
+    "y": 140,
+    "wires": [
+      [
+        "rsmetrics-write-pending"
+      ],
+      [
+        "rsmetrics-write-lag"
+      ],
+      [
+        "rsmetrics-write-lag-available"
+      ],
+      [
+        "rsmetrics-write-consumers"
+      ],
+      [
+        "rsmetrics-write-entries-read"
+      ],
+      [
+        "rsmetrics-write-entries-read-available"
+      ],
+      [
+        "rsmetrics-write-dlq-configured"
+      ],
+      [
+        "rsmetrics-write-dlq-messages"
+      ],
+      [
+        "rsmetrics-write-dlq-length-available"
+      ],
+      [
+        "rsmetrics-write-sample-timestamp"
+      ],
+      [
+        "rsmetrics-write-last-delivered-timestamp"
+      ],
+      [
+        "rsmetrics-write-last-delivered-available"
+      ]
+    ]
+  },
+  {
+    "id": "rsmetrics-write-pending",
+    "type": "nodered-metric",
+    "z": "rsmetrics-tab",
+    "name": "PEL pending messages",
+    "metric": "rsmetrics-config-pending",
+    "operation": "set",
+    "autoStep": false,
+    "step": "",
+    "stepType": "str",
+    "status": "success",
+    "statusType": "str",
+    "value": "0",
+    "valueType": "num",
+    "duration": "",
+    "durationType": "num",
+    "durationUnit": "seconds",
+    "labels": [],
+    "x": 2150,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "rsmetrics-write-lag",
+    "type": "nodered-metric",
+    "z": "rsmetrics-tab",
+    "name": "Undelivered lag messages",
+    "metric": "rsmetrics-config-lag",
+    "operation": "set",
+    "autoStep": false,
+    "step": "",
+    "stepType": "str",
+    "status": "success",
+    "statusType": "str",
+    "value": "0",
+    "valueType": "num",
+    "duration": "",
+    "durationType": "num",
+    "durationUnit": "seconds",
+    "labels": [],
+    "x": 2150,
+    "y": 80,
+    "wires": []
+  },
+  {
+    "id": "rsmetrics-write-lag-available",
+    "type": "nodered-metric",
+    "z": "rsmetrics-tab",
+    "name": "Lag available",
+    "metric": "rsmetrics-config-lag-available",
+    "operation": "set",
+    "autoStep": false,
+    "step": "",
+    "stepType": "str",
+    "status": "success",
+    "statusType": "str",
+    "value": "0",
+    "valueType": "num",
+    "duration": "",
+    "durationType": "num",
+    "durationUnit": "seconds",
+    "labels": [],
+    "x": 2150,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "rsmetrics-write-consumers",
+    "type": "nodered-metric",
+    "z": "rsmetrics-tab",
+    "name": "Registered consumers",
+    "metric": "rsmetrics-config-consumers",
+    "operation": "set",
+    "autoStep": false,
+    "step": "",
+    "stepType": "str",
+    "status": "success",
+    "statusType": "str",
+    "value": "0",
+    "valueType": "num",
+    "duration": "",
+    "durationType": "num",
+    "durationUnit": "seconds",
+    "labels": [],
+    "x": 2150,
+    "y": 160,
+    "wires": []
+  },
+  {
+    "id": "rsmetrics-write-entries-read",
+    "type": "nodered-metric",
+    "z": "rsmetrics-tab",
+    "name": "Redis entries-read snapshot",
+    "metric": "rsmetrics-config-entries-read",
+    "operation": "set",
+    "autoStep": false,
+    "step": "",
+    "stepType": "str",
+    "status": "success",
+    "statusType": "str",
+    "value": "0",
+    "valueType": "num",
+    "duration": "",
+    "durationType": "num",
+    "durationUnit": "seconds",
+    "labels": [],
+    "x": 2150,
+    "y": 200,
+    "wires": []
+  },
+  {
+    "id": "rsmetrics-write-entries-read-available",
+    "type": "nodered-metric",
+    "z": "rsmetrics-tab",
+    "name": "Entries-read available",
+    "metric": "rsmetrics-config-entries-read-available",
+    "operation": "set",
+    "autoStep": false,
+    "step": "",
+    "stepType": "str",
+    "status": "success",
+    "statusType": "str",
+    "value": "0",
+    "valueType": "num",
+    "duration": "",
+    "durationType": "num",
+    "durationUnit": "seconds",
+    "labels": [],
+    "x": 2150,
+    "y": 240,
+    "wires": []
+  },
+  {
+    "id": "rsmetrics-write-dlq-configured",
+    "type": "nodered-metric",
+    "z": "rsmetrics-tab",
+    "name": "DLQ configured",
+    "metric": "rsmetrics-config-dlq-configured",
+    "operation": "set",
+    "autoStep": false,
+    "step": "",
+    "stepType": "str",
+    "status": "success",
+    "statusType": "str",
+    "value": "0",
+    "valueType": "num",
+    "duration": "",
+    "durationType": "num",
+    "durationUnit": "seconds",
+    "labels": [],
+    "x": 2150,
+    "y": 280,
+    "wires": []
+  },
+  {
+    "id": "rsmetrics-write-dlq-messages",
+    "type": "nodered-metric",
+    "z": "rsmetrics-tab",
+    "name": "DLQ messages",
+    "metric": "rsmetrics-config-dlq-messages",
+    "operation": "set",
+    "autoStep": false,
+    "step": "",
+    "stepType": "str",
+    "status": "success",
+    "statusType": "str",
+    "value": "0",
+    "valueType": "num",
+    "duration": "",
+    "durationType": "num",
+    "durationUnit": "seconds",
+    "labels": [],
+    "x": 2150,
+    "y": 320,
+    "wires": []
+  },
+  {
+    "id": "rsmetrics-write-dlq-length-available",
+    "type": "nodered-metric",
+    "z": "rsmetrics-tab",
+    "name": "DLQ length available",
+    "metric": "rsmetrics-config-dlq-length-available",
+    "operation": "set",
+    "autoStep": false,
+    "step": "",
+    "stepType": "str",
+    "status": "success",
+    "statusType": "str",
+    "value": "0",
+    "valueType": "num",
+    "duration": "",
+    "durationType": "num",
+    "durationUnit": "seconds",
+    "labels": [],
+    "x": 2150,
+    "y": 360,
+    "wires": []
+  },
+  {
+    "id": "rsmetrics-write-sample-timestamp",
+    "type": "nodered-metric",
+    "z": "rsmetrics-tab",
+    "name": "Snapshot timestamp",
+    "metric": "rsmetrics-config-sample-timestamp",
+    "operation": "set",
+    "autoStep": false,
+    "step": "",
+    "stepType": "str",
+    "status": "success",
+    "statusType": "str",
+    "value": "0",
+    "valueType": "num",
+    "duration": "",
+    "durationType": "num",
+    "durationUnit": "seconds",
+    "labels": [],
+    "x": 2150,
+    "y": 400,
+    "wires": []
+  },
+  {
+    "id": "rsmetrics-write-last-delivered-timestamp",
+    "type": "nodered-metric",
+    "z": "rsmetrics-tab",
+    "name": "Last delivered ID timestamp",
+    "metric": "rsmetrics-config-last-delivered-timestamp",
+    "operation": "set",
+    "autoStep": false,
+    "step": "",
+    "stepType": "str",
+    "status": "success",
+    "statusType": "str",
+    "value": "0",
+    "valueType": "num",
+    "duration": "",
+    "durationType": "num",
+    "durationUnit": "seconds",
+    "labels": [],
+    "x": 2150,
+    "y": 440,
+    "wires": []
+  },
+  {
+    "id": "rsmetrics-write-last-delivered-available",
+    "type": "nodered-metric",
+    "z": "rsmetrics-tab",
+    "name": "Last delivered ID timestamp available",
+    "metric": "rsmetrics-config-last-delivered-available",
+    "operation": "set",
+    "autoStep": false,
+    "step": "",
+    "stepType": "str",
+    "status": "success",
+    "statusType": "str",
+    "value": "0",
+    "valueType": "num",
+    "duration": "",
+    "durationType": "num",
+    "durationUnit": "seconds",
+    "labels": [],
+    "x": 2150,
+    "y": 480,
+    "wires": []
+  },
+  {
+    "id": "rsmetrics-catch",
+    "type": "catch",
+    "z": "rsmetrics-tab",
+    "name": "Count Redis snapshot failures",
+    "scope": [
+      "rsmetrics-collect"
+    ],
+    "uncaught": false,
+    "x": 1450,
+    "y": 240,
+    "wires": [
+      [
+        "rsmetrics-error-sample"
+      ]
+    ]
+  },
+  {
+    "id": "rsmetrics-error-sample",
+    "type": "function",
+    "z": "rsmetrics-tab",
+    "name": "Build collection-error counter sample",
+    "func": "const redisTarget = String(msg.redisTarget || '').trim();\nconst stream = String(msg.stream || '').trim();\nconst group = String(msg.group || '').trim();\nif (!redisTarget || !stream || !group) return null;\nmsg.payload = {\n    op: 'inc',\n    val: 1,\n    labels: { redis_target: redisTarget, stream, consumer_group: group }\n};\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1750,
+    "y": 240,
+    "wires": [
+      [
+        "rsmetrics-write-collection-errors"
+      ]
+    ]
+  },
+  {
+    "id": "rsmetrics-write-collection-errors",
+    "type": "nodered-metric",
+    "z": "rsmetrics-tab",
+    "name": "Collection errors",
+    "metric": "rsmetrics-config-collection-errors",
+    "operation": "inc",
+    "autoStep": false,
+    "step": "",
+    "stepType": "str",
+    "status": "success",
+    "statusType": "str",
+    "value": "1",
+    "valueType": "num",
+    "duration": "",
+    "durationType": "num",
+    "durationUnit": "seconds",
+    "labels": [],
+    "x": 2150,
+    "y": 540,
+    "wires": []
+  },
+  {
+    "id": "rsmetrics-exporter",
+    "type": "nodered-metrics-exporter",
+    "z": "rsmetrics-tab",
+    "name": "Prometheus endpoint (one per runtime)",
+    "path": "/nodeRedMetrics",
+    "x": 210,
+    "y": 260,
+    "wires": []
+  },
+  {
+    "id": "rsmetrics-redis-config",
+    "type": "yroshcha-redis-config",
+    "name": "REPLACE: Redis target",
+    "host": "redis",
+    "port": "6379",
+    "db": "0",
+    "username": "",
+    "tls": false,
+    "cluster": false,
+    "connectTimeout": "10000",
+    "commandTimeout": "30000",
+    "retryMaxDelay": "30000"
+  },
+  {
+    "id": "rsmetrics-config-pending",
+    "type": "nodered-metric-config",
+    "name": "Redis Streams consumer-group PEL",
+    "metricType": "gauge",
+    "metricName": "nodered_redis_stream_consumer_group_pending_messages",
+    "help": "Redis Streams consumer-group pending entries list size",
+    "labelNames": "redis_target,stream,consumer_group",
+    "buckets": "",
+    "withDuration": false,
+    "prefix": "nodered_"
+  },
+  {
+    "id": "rsmetrics-config-lag",
+    "type": "nodered-metric-config",
+    "name": "Redis Streams consumer-group undelivered lag",
+    "metricType": "gauge",
+    "metricName": "nodered_redis_stream_consumer_group_lag_messages",
+    "help": "Redis Streams messages not yet delivered to the consumer group",
+    "labelNames": "redis_target,stream,consumer_group",
+    "buckets": "",
+    "withDuration": false,
+    "prefix": "nodered_"
+  },
+  {
+    "id": "rsmetrics-config-lag-available",
+    "type": "nodered-metric-config",
+    "name": "Redis Streams consumer-group lag availability",
+    "metricType": "gauge",
+    "metricName": "nodered_redis_stream_consumer_group_lag_available",
+    "help": "Whether Redis reported a numeric consumer-group lag",
+    "labelNames": "redis_target,stream,consumer_group",
+    "buckets": "",
+    "withDuration": false,
+    "prefix": "nodered_"
+  },
+  {
+    "id": "rsmetrics-config-consumers",
+    "type": "nodered-metric-config",
+    "name": "Redis Streams registered consumers",
+    "metricType": "gauge",
+    "metricName": "nodered_redis_stream_consumer_group_consumers",
+    "help": "Registered Redis Streams consumers in the consumer group",
+    "labelNames": "redis_target,stream,consumer_group",
+    "buckets": "",
+    "withDuration": false,
+    "prefix": "nodered_"
+  },
+  {
+    "id": "rsmetrics-config-entries-read",
+    "type": "nodered-metric-config",
+    "name": "Redis Streams entries-read snapshot",
+    "metricType": "gauge",
+    "metricName": "nodered_redis_stream_consumer_group_entries_read",
+    "help": "Redis XINFO GROUPS entries-read diagnostic snapshot",
+    "labelNames": "redis_target,stream,consumer_group",
+    "buckets": "",
+    "withDuration": false,
+    "prefix": "nodered_"
+  },
+  {
+    "id": "rsmetrics-config-entries-read-available",
+    "type": "nodered-metric-config",
+    "name": "Redis Streams entries-read availability",
+    "metricType": "gauge",
+    "metricName": "nodered_redis_stream_consumer_group_entries_read_available",
+    "help": "Whether Redis reported entries-read for the consumer group",
+    "labelNames": "redis_target,stream,consumer_group",
+    "buckets": "",
+    "withDuration": false,
+    "prefix": "nodered_"
+  },
+  {
+    "id": "rsmetrics-config-dlq-configured",
+    "type": "nodered-metric-config",
+    "name": "Redis Streams DLQ collection configured",
+    "metricType": "gauge",
+    "metricName": "nodered_redis_stream_consumer_group_dead_letter_configured",
+    "help": "Whether this collector was configured to read the consumer-group DLQ",
+    "labelNames": "redis_target,stream,consumer_group",
+    "buckets": "",
+    "withDuration": false,
+    "prefix": "nodered_"
+  },
+  {
+    "id": "rsmetrics-config-dlq-messages",
+    "type": "nodered-metric-config",
+    "name": "Redis Streams DLQ messages",
+    "metricType": "gauge",
+    "metricName": "nodered_redis_stream_consumer_group_dead_letter_messages",
+    "help": "Current Redis Streams dead letter stream length",
+    "labelNames": "redis_target,stream,consumer_group",
+    "buckets": "",
+    "withDuration": false,
+    "prefix": "nodered_"
+  },
+  {
+    "id": "rsmetrics-config-dlq-length-available",
+    "type": "nodered-metric-config",
+    "name": "Redis Streams DLQ length availability",
+    "metricType": "gauge",
+    "metricName": "nodered_redis_stream_consumer_group_dead_letter_length_available",
+    "help": "Whether the collector reported a numeric dead letter stream length",
+    "labelNames": "redis_target,stream,consumer_group",
+    "buckets": "",
+    "withDuration": false,
+    "prefix": "nodered_"
+  },
+  {
+    "id": "rsmetrics-config-sample-timestamp",
+    "type": "nodered-metric-config",
+    "name": "Redis Streams snapshot timestamp",
+    "metricType": "gauge",
+    "metricName": "nodered_redis_stream_consumer_group_sample_timestamp_seconds",
+    "help": "Unix timestamp of the last successful Redis consumer-group snapshot",
+    "labelNames": "redis_target,stream,consumer_group",
+    "buckets": "",
+    "withDuration": false,
+    "prefix": "nodered_"
+  },
+  {
+    "id": "rsmetrics-config-last-delivered-timestamp",
+    "type": "nodered-metric-config",
+    "name": "Redis Streams last delivered ID timestamp",
+    "metricType": "gauge",
+    "metricName": "nodered_redis_stream_consumer_group_last_delivered_entry_timestamp_seconds",
+    "help": "Timestamp component of the Redis last delivered entry ID when numeric",
+    "labelNames": "redis_target,stream,consumer_group",
+    "buckets": "",
+    "withDuration": false,
+    "prefix": "nodered_"
+  },
+  {
+    "id": "rsmetrics-config-last-delivered-available",
+    "type": "nodered-metric-config",
+    "name": "Redis Streams last delivered timestamp availability",
+    "metricType": "gauge",
+    "metricName": "nodered_redis_stream_consumer_group_last_delivered_entry_timestamp_available",
+    "help": "Whether a positive numeric timestamp could be parsed from last-delivered-id",
+    "labelNames": "redis_target,stream,consumer_group",
+    "buckets": "",
+    "withDuration": false,
+    "prefix": "nodered_"
+  },
+  {
+    "id": "rsmetrics-config-collection-errors",
+    "type": "nodered-metric-config",
+    "name": "Redis Streams snapshot collection errors",
+    "metricType": "counter",
+    "metricName": "nodered_redis_stream_consumer_group_collection_errors_total",
+    "help": "Redis Streams consumer-group snapshot collection failures",
+    "labelNames": "redis_target,stream,consumer_group",
+    "buckets": "",
+    "withDuration": false,
+    "prefix": "nodered_"
+  }
+]

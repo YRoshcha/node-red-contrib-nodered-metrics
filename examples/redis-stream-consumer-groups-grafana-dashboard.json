@@ -1,0 +1,1504 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "editorMode": "code",
+          "expr": "(count(time() - max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) > $freshness_seconds) or vector(0))",
+          "instant": true,
+          "legendFormat": "stale groups",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Stale Snapshots",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "editorMode": "code",
+          "expr": "(count((max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_pending_messages{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) > 0) and on (redis_target, stream, consumer_group) (time() - max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) < $freshness_seconds)) or vector(0))",
+          "instant": true,
+          "legendFormat": "groups",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Groups with Pending PEL",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "editorMode": "code",
+          "expr": "(count(((max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_lag_messages{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) > 0) and on (redis_target, stream, consumer_group) (max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_lag_available{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) == 1)) and on (redis_target, stream, consumer_group) (time() - max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) < $freshness_seconds)) or vector(0))",
+          "instant": true,
+          "legendFormat": "groups",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Groups with Undelivered Lag",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "editorMode": "code",
+          "expr": "(count((((max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_dead_letter_messages{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) > 0) and on (redis_target, stream, consumer_group) (max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_dead_letter_configured{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) == 1)) and on (redis_target, stream, consumer_group) (max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_dead_letter_length_available{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) == 1)) and on (redis_target, stream, consumer_group) (time() - max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) < $freshness_seconds)) or vector(0))",
+          "instant": true,
+          "legendFormat": "groups",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Groups with DLQ Messages",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 12,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "editorMode": "code",
+          "expr": "topk($top_n, max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_pending_messages{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) and on (redis_target, stream, consumer_group) (time() - max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) < $freshness_seconds))",
+          "legendFormat": "{{redis_target}} · {{stream}} · {{consumer_group}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Top $top_n Groups by Pending PEL",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 12,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "editorMode": "code",
+          "expr": "topk($top_n, (max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_lag_messages{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) and on (redis_target, stream, consumer_group) (max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_lag_available{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) == 1)) and on (redis_target, stream, consumer_group) (time() - max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) < $freshness_seconds))",
+          "legendFormat": "{{redis_target}} · {{stream}} · {{consumer_group}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Top $top_n Groups by Undelivered Lag",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "editorMode": "code",
+          "expr": "topk($top_n, max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_pending_messages{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) and on (redis_target, stream, consumer_group) (time() - max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) < $freshness_seconds))",
+          "legendFormat": "Pending | {{redis_target}} · {{stream}} · {{consumer_group}}",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "editorMode": "code",
+          "expr": "topk($top_n, (max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_lag_messages{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) and on (redis_target, stream, consumer_group) (max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_lag_available{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) == 1)) and on (redis_target, stream, consumer_group) (time() - max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) < $freshness_seconds))",
+          "legendFormat": "Lag | {{redis_target}} · {{stream}} · {{consumer_group}}",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Pending vs Lag — Top $top_n",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 12,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "editorMode": "code",
+          "expr": "topk($top_n, (max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_pending_messages{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) / clamp_min(max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_consumers{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}), 1)) and on (redis_target, stream, consumer_group) (time() - max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) < $freshness_seconds))",
+          "legendFormat": "{{redis_target}} · {{stream}} · {{consumer_group}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Top $top_n Groups by Pending per Registered Consumer",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "editorMode": "code",
+          "expr": "topk($top_n, time() - max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}))",
+          "legendFormat": "{{redis_target}} · {{stream}} · {{consumer_group}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Top $top_n Snapshot Ages",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 12,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "editorMode": "code",
+          "expr": "topk($top_n, (((max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_dead_letter_messages{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) and on (redis_target, stream, consumer_group) (max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_dead_letter_configured{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) == 1)) and on (redis_target, stream, consumer_group) (max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_dead_letter_length_available{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) == 1)) and on (redis_target, stream, consumer_group) (time() - max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) < $freshness_seconds)))",
+          "legendFormat": "{{redis_target}} · {{stream}} · {{consumer_group}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Top $top_n DLQ Depths",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
+      "id": 11,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "editorMode": "code",
+          "expr": "label_replace(max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_pending_messages{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) and on (redis_target, stream, consumer_group) (time() - max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) < $freshness_seconds), \"Metric\", \"Pending PEL\", \"__name__\", \".*\") or label_replace((max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_lag_messages{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) and on (redis_target, stream, consumer_group) (max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_lag_available{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) == 1)) and on (redis_target, stream, consumer_group) (time() - max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) < $freshness_seconds), \"Metric\", \"Undelivered Lag\", \"__name__\", \".*\") or label_replace(max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_consumers{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) and on (redis_target, stream, consumer_group) (time() - max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) < $freshness_seconds), \"Metric\", \"Registered Consumers\", \"__name__\", \".*\") or label_replace(time() - max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}), \"Metric\", \"Snapshot Age (s)\", \"__name__\", \".*\") or label_replace(max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_lag_available{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}), \"Metric\", \"Lag Available\", \"__name__\", \".*\")",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Group Health Matrix",
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "keepLabels": [
+              "redis_target",
+              "stream",
+              "consumer_group"
+            ],
+            "mode": "columns",
+            "valueLabel": "Metric"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {},
+            "renameByName": {}
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 12,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 43
+      },
+      "id": 12,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "editorMode": "code",
+          "expr": "topk($top_n, max by (redis_target, stream, consumer_group) (rate(nodered_redis_stream_consumer_group_collection_errors_total{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}[$__rate_interval])) or vector(0))",
+          "legendFormat": "{{redis_target}} · {{stream}} · {{consumer_group}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Top $top_n Snapshot Collection Error Rates",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 0,
+                  "text": "Unavailable"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 1,
+                  "text": "Available"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 43
+      },
+      "id": 13,
+      "options": {
+        "displayMode": "gradient",
+        "maxVizHeight": 300,
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "namePlacement": "left",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "text"
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "editorMode": "code",
+          "expr": "topk($top_n, max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_lag_available{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}))",
+          "legendFormat": "{{redis_target}} · {{stream}} · {{consumer_group}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Lag Availability",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 51
+      },
+      "id": 14,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "editorMode": "code",
+          "expr": "topk($top_n, (time() - max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_last_delivered_entry_timestamp_seconds{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"})) and on (redis_target, stream, consumer_group) (max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_last_delivered_entry_timestamp_available{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) == 1) and on (redis_target, stream, consumer_group) (time() - max by (redis_target, stream, consumer_group) (nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\",consumer_group=~\"$consumer_group\"}) < $freshness_seconds))",
+          "legendFormat": "{{redis_target}} · {{stream}} · {{consumer_group}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Last Delivered Entry Watermark Age",
+      "description": "This is the timestamp component of the Redis stream ID, not a worker heartbeat. It is meaningful only for server-generated numeric IDs.",
+      "type": "timeseries"
+    }
+  ],
+  "preload": false,
+  "refresh": "10m",
+  "schemaVersion": 42,
+  "tags": [
+    "node-red",
+    "redis",
+    "streams",
+    "consumer-groups",
+    "prometheus"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "Mimir",
+          "value": "mimir"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Datasource",
+        "multi": false,
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "$datasource"
+        },
+        "definition": "label_values(nodered_redis_stream_consumer_group_sample_timestamp_seconds, namespace)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Namespace",
+        "multi": true,
+        "name": "namespace",
+        "options": [],
+        "query": "label_values(nodered_redis_stream_consumer_group_sample_timestamp_seconds, namespace)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "$datasource"
+        },
+        "definition": "label_values(nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\"}, job)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Job",
+        "multi": true,
+        "name": "job",
+        "options": [],
+        "query": "label_values(nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\"}, job)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "$datasource"
+        },
+        "definition": "label_values(nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\",job=~\"$job\"}, redis_target)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Redis Target",
+        "multi": true,
+        "name": "redis_target",
+        "options": [],
+        "query": "label_values(nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\",job=~\"$job\"}, redis_target)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "$datasource"
+        },
+        "definition": "label_values(nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\"}, stream)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Stream",
+        "multi": true,
+        "name": "stream",
+        "options": [],
+        "query": "label_values(nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\"}, stream)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "$datasource"
+        },
+        "definition": "label_values(nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\"}, consumer_group)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Consumer Group",
+        "multi": true,
+        "name": "consumer_group",
+        "options": [],
+        "query": "label_values(nodered_redis_stream_consumer_group_sample_timestamp_seconds{namespace=~\"$namespace\",job=~\"$job\",redis_target=~\"$redis_target\",stream=~\"$stream\"}, consumer_group)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "20",
+          "value": "20"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Top N",
+        "multi": false,
+        "name": "top_n",
+        "options": [
+          {
+            "selected": true,
+            "text": "20",
+            "value": "20"
+          },
+          {
+            "selected": false,
+            "text": "50",
+            "value": "50"
+          },
+          {
+            "selected": false,
+            "text": "100",
+            "value": "100"
+          },
+          {
+            "selected": false,
+            "text": "200",
+            "value": "200"
+          }
+        ],
+        "query": "20,50,100,200",
+        "skipUrlSync": false,
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "180",
+          "value": "180"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Freshness (seconds)",
+        "multi": false,
+        "name": "freshness_seconds",
+        "options": [
+          {
+            "selected": true,
+            "text": "180",
+            "value": "180"
+          },
+          {
+            "selected": false,
+            "text": "300",
+            "value": "300"
+          },
+          {
+            "selected": false,
+            "text": "600",
+            "value": "600"
+          }
+        ],
+        "query": "180,300,600",
+        "skipUrlSync": false,
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Node-RED | Redis Streams Consumer Groups",
+  "uid": "nodered-redis-stream-groups",
+  "version": 1,
+  "weekStart": ""
+}

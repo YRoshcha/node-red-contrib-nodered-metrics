@@ -102,7 +102,7 @@ Use bounded dimensions instead: `status=success|failed`, `source=kafka|http`, or
 
 ### Deploy behaviour
 
-Normal Deploy does not reset Counter, Histogram, or Gauge values. Changing an existing metric's **Label names** is deliberately not applied on Deploy: the old metric stays active and a warning is emitted. Fully restart Node-RED to apply a label schema change.
+Normal Deploy does not reset Counter, Histogram, or Gauge values for metric configurations that remain in use. Removing a metric configuration removes its metric from the process registry without restarting Node-RED; after the next scrape it no longer appears at the exporter endpoint. If a Counter also tracks duration, its companion histogram is removed too. A metric shared by multiple configurations is retained until the last configuration closes.
 
 ## Common patterns
 
@@ -112,6 +112,38 @@ Normal Deploy does not reset Counter, Histogram, or Gauge values. Changing an ex
 | HTTP request duration | Histogram | `nodered_http_request_duration_seconds` | Observe duration |
 | Active jobs | Gauge | `nodered_active_jobs` | Set gauge |
 | Pipeline run count and duration | Counter + duration | `nodered_pipeline_runs_total` | Increment / Observe |
+
+## Redis Streams consumer-group monitoring
+
+[examples/redis-stream-consumer-groups-metrics.json](examples/redis-stream-consumer-groups-metrics.json)
+is an importable flow for @yroshcha/node-red-contrib-redis-full. It polls a
+bounded stream/group inventory, rate-limits Redis requests, and exports bounded
+redis_target, stream, and consumer_group labels. Import it into one dedicated
+monitoring runtime, select the Redis config node, and keep only one
+/nodeRedMetrics exporter in that runtime.
+
+Configure the stream/group inventory manually:
+
+    REDIS_TARGET=redis-production-a
+    REDIS_STREAM_GROUPS_JSON=[
+      {"stream":"events:raw","group":"events:raw-workers","deadLetterStream":"events:raw:dlq"},
+      {"stream":"events:remaped","group":"events:remaped-workers"}
+    ]
+    REDIS_STREAM_METRICS_MAX_PAIRS=500
+
+Omit `deadLetterStream` when there is no DLQ to measure. As an alternative to
+the environment variable, set the same array in `flow.redisStreamGroups`.
+
+The flow defaults to one poll per minute and ten Redis snapshots per second.
+Set the rate and interval so a full cycle finishes before the next one begins.
+It preserves lag: null and an unconfigured/unreadable DLQ as availability
+states rather than exporting them as zero.
+
+Import
+[examples/redis-stream-consumer-groups-grafana-dashboard.json](examples/redis-stream-consumer-groups-grafana-dashboard.json)
+after the first successful scrape. Its default datasource is Mimir, refresh is
+10m, and its scalable views use a configurable Top N while the health matrix
+keeps the selected stream/group dimensions visible.
 
 ## Troubleshooting
 

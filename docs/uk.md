@@ -137,7 +137,7 @@ order_id = msg.order.id
 
 ### Deploy і зміна лейблів
 
-Звичайний Deploy не скидає Counter, Histogram і Gauge — накопичені дані у registry залишаються. Але змінювати `Label names` існуючої метрики на Deploy не можна: палітра лишить стару схему та попередить у логах. Щоб застосувати новий набір лейблів, виконайте повний рестарт Node-RED.
+Звичайний Deploy не скидає Counter, Histogram і Gauge для metric configuration, які залишаються в роботі. Якщо видалити metric configuration, її метрика зникає з process registry без перезапуску Node-RED і після наступного scrape не потрапляє в exporter endpoint. Для Counter з увімкненим **Also track duration** також видаляється його companion histogram. Якщо одну метрику використовують кілька config-node, вона лишається до закриття останньої з них.
 
 ## Типові сценарії
 
@@ -147,6 +147,37 @@ order_id = msg.order.id
 | Час HTTP запиту | Histogram | `nodered_http_request_duration_seconds` | Observe duration |
 | Активні jobs | Gauge | `nodered_active_jobs` | Set gauge |
 | Час pipeline разом з кількістю запусків | Counter + **Also track duration** | `nodered_pipeline_runs_total` | Increment / Observe duration |
+
+## Моніторинг Redis Streams consumer group
+
+[examples/redis-stream-consumer-groups-metrics.json](../examples/redis-stream-consumer-groups-metrics.json)
+— готовий до імпорту flow для @yroshcha/node-red-contrib-redis-full. Він
+зчитує bounded inventory пар stream/group, обмежує частоту Redis-запитів і
+експортує лише bounded labels: redis_target, stream, consumer_group.
+Імпортуйте його в один окремий monitoring runtime, виберіть Redis config node
+та лишіть у runtime тільки один exporter на /nodeRedMetrics.
+
+Задайте inventory пар stream/group вручну:
+
+    REDIS_TARGET=redis-production-a
+    REDIS_STREAM_GROUPS_JSON=[
+      {"stream":"events:raw","group":"events:raw-workers","deadLetterStream":"events:raw:dlq"},
+      {"stream":"events:remaped","group":"events:remaped-workers"}
+    ]
+    REDIS_STREAM_METRICS_MAX_PAIRS=500
+
+Якщо DLQ не потрібно міряти — просто не вказуй `deadLetterStream`. Замість
+env-змінної можна передати такий самий масив у `flow.redisStreamGroups`.
+
+За замовчуванням flow запускається раз на хвилину та пропускає до десяти
+snapshot-запитів за секунду. Налаштуйте rate та interval так, щоб повний цикл
+закінчувався до наступного запуску. lag: null і невимірюваний/неналаштований
+DLQ flow показує через availability metric, а не як хибний нуль.
+
+Після першого успішного scrape імпортуйте
+[examples/redis-stream-consumer-groups-grafana-dashboard.json](../examples/redis-stream-consumer-groups-grafana-dashboard.json).
+У ньому Mimir обраний за замовчуванням, refresh — 10m, а тяжкі графіки
+обмежені змінною Top N; matrix зберігає обрані stream/group виміри видимими.
 
 ## Діагностика
 

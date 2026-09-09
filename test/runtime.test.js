@@ -68,6 +68,28 @@ test("label drift retains the registered metric and warns", async () => {
   assert.equal((await second.metric.get()).name, "nodered_jobs_total");
 });
 
+test("closing a metric configuration removes its metric from the registry", () => {
+  const { types } = createRed();
+  const config = new types["nodered-metric-config"]({ id: "cleanup", metricType: "counter", metricName: "nodered_cleanup_total", withDuration: true });
+  assert.ok(promClient.register.getSingleMetric("nodered_cleanup_total"));
+  assert.ok(promClient.register.getSingleMetric("nodered_cleanup_duration_seconds"));
+
+  config.on_close(true, () => {});
+  assert.equal(promClient.register.getSingleMetric("nodered_cleanup_total"), undefined);
+  assert.equal(promClient.register.getSingleMetric("nodered_cleanup_duration_seconds"), undefined);
+});
+
+test("closing one of several configurations sharing a metric retains it", () => {
+  const { types } = createRed();
+  const first = new types["nodered-metric-config"]({ id: "shared-one", metricType: "gauge", metricName: "nodered_shared_gauge" });
+  const second = new types["nodered-metric-config"]({ id: "shared-two", metricType: "gauge", metricName: "nodered_shared_gauge" });
+
+  first.on_close(true, () => {});
+  assert.ok(promClient.register.getSingleMetric("nodered_shared_gauge"));
+  second.on_close(true, () => {});
+  assert.equal(promClient.register.getSingleMetric("nodered_shared_gauge"), undefined);
+});
+
 test("metric type and histogram bucket drift retain the existing schema and warn", () => {
   const { types } = createRed();
   const counter = new types["nodered-metric-config"]({ id: "counter", metricType: "counter", metricName: "nodered_schema_total" });

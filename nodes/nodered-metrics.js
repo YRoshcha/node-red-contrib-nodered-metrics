@@ -4,6 +4,7 @@ const promClient = require("prom-client");
 const register = promClient.register;
 const defaultMetricPrefixes = new Set();
 const exporterPaths = new Map();
+const metricOwners = new Map();
 const METRIC_NAME_PATTERN = /^[a-zA-Z_:][a-zA-Z0-9_:]*$/;
 const LABEL_NAME_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 const METRIC_TYPES = new Set(["counter", "histogram", "gauge"]);
@@ -28,6 +29,20 @@ function sameBuckets(metric, configuredBuckets) {
 
 function metricFromRegister(name) {
   return register.getSingleMetric(name);
+}
+
+function retainMetric(name, owner) {
+  if (!metricOwners.has(name)) metricOwners.set(name, new Set());
+  metricOwners.get(name).add(owner);
+}
+
+function releaseMetric(name, owner) {
+  const owners = metricOwners.get(name);
+  if (!owners) return;
+  owners.delete(owner);
+  if (owners.size) return;
+  metricOwners.delete(name);
+  register.removeSingleMetric(name);
 }
 
 function warnDrift(node, name, current, kind, options) {
@@ -138,6 +153,7 @@ module.exports = function (RED) {
     }
     try {
       this.metric = createMetric(this, this.metricType, options);
+      retainMetric(this.metricName, this);
       if (this.metricType === "counter" && config.withDuration) {
         const durationName = `${this.metricName.replace(/_total$/, "")}_duration_seconds`;
         this.durationMetric = createMetric(this, "histogram", {
@@ -145,12 +161,19 @@ module.exports = function (RED) {
           help: `${options.help} duration in seconds`,
           labelNames: this.labelNames
         });
+        this.durationMetricName = durationName;
+        retainMetric(durationName, this);
       }
     } catch (error) {
       this.metric = null;
       this.durationMetric = null;
       this.warn(`Could not create metric \"${this.metricName}\": ${error.message}`);
     }
+    this.on("close", (_removed, done) => {
+      if (this.metric) releaseMetric(this.metricName, this);
+      if (this.durationMetric) releaseMetric(this.durationMetricName, this);
+      done();
+    });
   }
   RED.nodes.registerType("nodered-metric-config", MetricConfig);
 
