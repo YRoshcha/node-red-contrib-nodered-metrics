@@ -1,6 +1,6 @@
 {
   "name": "@yroshcha/node-red-contrib-nodered-metrics",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Prometheus metrics nodes for Node-RED",
   "author": "YRoshcha (https://github.com/yroshcha)",
   "scripts": {
