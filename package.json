@@ -1,6 +1,6 @@
 {
   "name": "@yroshcha/node-red-contrib-nodered-metrics",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Prometheus metrics nodes for Node-RED",
   "author": "YRoshcha (https://github.com/yroshcha)",
   "scripts": {
@@ -15,7 +15,11 @@
   "bugs": {
     "url": "https://github.com/yroshcha/node-red-contrib-nodered-metrics/issues"
   },
-  "keywords": ["node-red", "prometheus", "metrics"],
+  "keywords": [
+    "node-red",
+    "prometheus",
+    "metrics"
+  ],
   "files": [
     "nodes",
     "examples",
